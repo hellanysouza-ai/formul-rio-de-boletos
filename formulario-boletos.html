@@ -642,10 +642,10 @@
 
 <script>
 // ─── EmailJS ────────────────────────────────────────────────────────────────
-const EMAILJS_PUBLIC_KEY   = 'i0baUTbhdjYvFkT9c';
-const EMAILJS_SERVICE_ID   = 'service_gvedztq';
-const EMAILJS_TEMPLATE_INT = 'template_6rd60l3';   // template interno  ← ajuste se necessário
-const EMAILJS_TEMPLATE_ACK = 'template_v84t5aa';   // template confirmação ← ajuste se necessário
+const EMAILJS_PUBLIC_KEY   = '2s5JSO64b25gfmlgB';
+const EMAILJS_SERVICE_ID   = 'service_zl3f9ld';
+const EMAILJS_TEMPLATE_INT = 'template_c4hjp3s';   // template interno — financeiro
+const EMAILJS_TEMPLATE_ACK = 'template_i75oeal';   // template confirmação — solicitante
 const DESTINO_FIN          = 'boletos@affinitycorretora.com.br';
 const CLOUDINARY_CLOUD_NAME    = 'uh6giet4';
 const CLOUDINARY_UPLOAD_PRESET = 'affinity_boletos';
@@ -715,18 +715,37 @@ function onFileSelect(input) {
 
 // ── Upload para Cloudinary ───────────────────────────────────────────────────
 async function uploadToCloudinary(file) {
+  // Converte para base64 via FileReader (compatível com todos os browsers)
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result); // data:type;base64,xxx
+    reader.onerror = () => reject(new Error('Erro ao ler o arquivo'));
+    reader.readAsDataURL(file);
+  });
+
   const formData = new FormData();
-  formData.append('file',           file);
-  formData.append('upload_preset',  CLOUDINARY_UPLOAD_PRESET);
+  formData.append('file',          base64);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-    { method: 'POST', body: formData }
-  );
+  let res;
+  try {
+    res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+      { method: 'POST', body: formData }
+    );
+  } catch (networkErr) {
+    throw new Error('Sem acesso ao Cloudinary. Verifique sua conexão. (' + networkErr.message + ')');
+  }
 
-  if (!res.ok) throw new Error('Falha no upload para Cloudinary');
+  if (!res.ok) {
+    let detail = '';
+    try { const d = await res.json(); detail = d.error?.message || ''; } catch(_) {}
+    throw new Error(`Cloudinary erro ${res.status}: ${detail || res.statusText}`);
+  }
+
   const data = await res.json();
-  return data.secure_url; // URL pública e segura do arquivo
+  if (!data.secure_url) throw new Error('Cloudinary não retornou URL do arquivo.');
+  return data.secure_url;
 }
 function v(id) { return (document.getElementById(id) || {}).value?.trim() || ''; }
 
@@ -824,7 +843,7 @@ function validar() {
 }
 
 // ── Corpo do e-mail ───────────────────────────────────────────────────────────
-function montarCorpo() {
+function montarCorpo(boletoUrl = '', boletoNome = '') {
   const tipoLabel = tipoAtual === 'emissao' ? '🧾 EMISSÃO DE BOLETO' : '✅ QUITAÇÃO DE BOLETO';
   const agora = new Date();
   const dataEnvio = agora.toLocaleString('pt-BR');
@@ -883,6 +902,12 @@ function montarCorpo() {
       <p style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.8px;margin:0 0 6px;">Observações</p>
       <p style="font-size:13px;color:#2D1228;margin:0;">${obs}</p>
     </div>` : ''}
+
+    ${boletoUrl ? `<div style="margin-top:16px;background:#f0f8f0;border:1px solid #b2dfdb;border-radius:8px;padding:14px 16px;">
+      <p style="font-size:11px;font-weight:700;color:#1a9e6b;text-transform:uppercase;letter-spacing:.8px;margin:0 0 6px;">📎 Boleto para Quitação</p>
+      <a href="${boletoUrl}" style="color:#7B3A6E;font-size:13px;font-weight:600;">${boletoNome}</a>
+      <p style="font-size:11px;color:#888;margin:4px 0 0;">Clique no link acima para baixar o boleto.</p>
+    </div>` : ''}
   </div>
 
   <div style="background:#f5f0f4;padding:12px 24px;border-radius:0 0 10px 10px;border:1px solid #e0e0e0;border-top:none;">
@@ -897,7 +922,6 @@ async function enviar() {
   setBtnLoading(true);
 
   const tipoLabel = tipoAtual === 'emissao' ? 'Emissão de Boleto' : 'Quitação de Boleto';
-  const corpoHTML = montarCorpo();
 
   // Prepara anexo se for quitação (upload para Cloudinary)
   let boletoUrl  = '';
@@ -912,20 +936,21 @@ async function enviar() {
       showUploadProgress(false);
     } catch (e) {
       showUploadProgress(false);
-      showAlert('error', 'Erro ao enviar o boleto. Verifique sua conexão e tente novamente.');
+      showAlert('error', 'Erro ao enviar o boleto: ' + e.message);
       setBtnLoading(false);
       return;
     }
   }
 
+  // Monta corpo do e-mail já com o link do boleto embutido
+  const corpoHTML = montarCorpo(boletoUrl, boletoNome);
+
   const paramsInterno = {
     to_email:    DESTINO_FIN,
     subject:     `[${tipoLabel}] ${tipoAtual === 'emissao' ? v('em-proposta') : v('qt-proposta')} — ${tipoAtual === 'emissao' ? v('em-nome') : v('qt-nome')}`,
-    message:     corpoHTML + (boletoUrl ? `<br><br><strong>Boleto anexado:</strong> <a href="${boletoUrl}">${boletoNome}</a>` : ''),
+    message:     corpoHTML,
     from_name:   v('solicitante'),
     reply_to:    v('solicitante-email'),
-    boleto_url:  boletoUrl,
-    boleto_nome: boletoNome,
   };
 
   const paramsAck = {
