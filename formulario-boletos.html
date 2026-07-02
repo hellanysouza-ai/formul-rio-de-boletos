@@ -715,6 +715,9 @@ function onFileSelect(input) {
 
 // ── Upload para Cloudinary ───────────────────────────────────────────────────
 async function uploadToCloudinary(file) {
+  // Define o tipo correto: raw para PDF, image para imagens
+  const tipo = file.type === 'application/pdf' ? 'raw' : 'image';
+
   // Converte para base64 via FileReader (compatível com todos os browsers)
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -730,7 +733,7 @@ async function uploadToCloudinary(file) {
   let res;
   try {
     res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${tipo}/upload`,
       { method: 'POST', body: formData }
     );
   } catch (networkErr) {
