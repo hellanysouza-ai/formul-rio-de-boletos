@@ -963,21 +963,71 @@ async function enviar() {
   // Monta corpo do e-mail já com o link do boleto embutido
   const corpoHTML = montarCorpo(boletoUrl, boletoNome);
 
+  // Monta variáveis individuais para o template do EmailJS
+  const agora = new Date().toLocaleString('pt-BR');
+  const tipoEmissao = tipoAtual === 'emissao';
+  const tipoLabelAcc = tipoEmissao ? '🧾 Emissão de Boleto' : '✅ Quitação de Boleto';
+
+  // Monta linhas da tabela como HTML
+  const linhasTabela = tipoEmissao ? [
+    ['Beneficiário',   v('em-nome')],
+    ['CPF / CNPJ',     v('em-doc')],
+    ['Nº Proposta',    v('em-proposta')],
+    ['Operadora',      getOperadora('em')],
+    ['Valor (R$)',     v('em-valor')],
+    ['Vencimento',     fmtData(v('em-vencimento'))],
+    ['Descrição',      v('em-descricao') || '—'],
+    ['Corretor',       v('em-corretor')],
+    ['Cód. Corretor',  v('em-cod-corretor')],
+  ] : [
+    ['Beneficiário',   v('qt-nome')],
+    ['CPF / CNPJ',     v('qt-doc')],
+    ['Nº Proposta',    v('qt-proposta')],
+    ['Operadora',      getOperadora('qt')],
+    ['Corretor',       v('qt-corretor')],
+    ['Cód. Corretor',  v('qt-cod-corretor')],
+  ];
+
+  const tabelaHTML = linhasTabela.map(([l, val], i) =>
+    `<tr style="background:${i%2===0?'#ffffff':'#fdf8fc'}">
+      <td style="padding:9px 12px;border:1px solid #e0e0e0;font-weight:700;color:#5C2952;font-size:12px;width:160px">${l}</td>
+      <td style="padding:9px 12px;border:1px solid #e0e0e0;font-size:13px;color:#2D1228">${val}</td>
+    </tr>`
+  ).join('');
+
+  const obsBloco = v('obs') ? `<div style="background:#f7f7f7;border-left:3px solid #7B3A6E;padding:10px 14px;margin-bottom:14px;border-radius:0 6px 6px 0"><p style="font-size:10px;font-weight:700;color:#7B3A6E;text-transform:uppercase;letter-spacing:.8px;margin:0 0 4px">Observações</p><p style="font-size:13px;color:#2D1228;margin:0">${v('obs')}</p></div>` : '';
+
+  const boletoBloco = boletoUrl ? `<div style="background:#f0f9f4;border:1px solid #a8d5be;border-radius:8px;padding:12px 16px"><p style="font-size:10px;font-weight:700;color:#1a9e6b;text-transform:uppercase;letter-spacing:.8px;margin:0 0 6px">📎 Boleto para Quitação</p><a href="${boletoUrl}" style="color:#7B3A6E;font-size:13px;font-weight:700;text-decoration:none">${boletoNome}</a><p style="font-size:11px;color:#888;margin:4px 0 0">Clique no link acima para visualizar ou baixar o boleto.</p></div>` : '';
+
   const paramsInterno = {
-    to_email:    DESTINO_FIN,
-    subject:     `[${tipoLabel}] ${tipoAtual === 'emissao' ? v('em-proposta') : v('qt-proposta')} — ${tipoAtual === 'emissao' ? v('em-nome') : v('qt-nome')}`,
-    message:     corpoHTML,
-    from_name:   v('solicitante'),
-    reply_to:    v('solicitante-email'),
+    to_email:        DESTINO_FIN,
+    subject:         `[${tipoLabel}] ${tipoAtual === 'emissao' ? v('em-proposta') : v('qt-proposta')} — ${tipoAtual === 'emissao' ? v('em-nome') : v('qt-nome')}`,
+    message:         corpoHTML,
+    from_name:       v('solicitante'),
+    reply_to:        v('solicitante-email'),
+    tipo_label:      tipoLabelAcc,
+    solicitante:     v('solicitante'),
+    solicitante_email: v('solicitante-email'),
+    data_envio:      agora,
+    tabela_dados:    tabelaHTML,
+    obs_bloco:       obsBloco,
+    boleto_bloco:    boletoBloco,
   };
 
   const paramsAck = {
-    to_email:    v('solicitante-email'),
-    to_name:     v('solicitante'),
-    subject:     `Confirmação: ${tipoLabel}`,
-    message:     corpoHTML,
-    from_name:   'Affinity Corretora',
-    reply_to:    DESTINO_FIN,
+    to_email:        v('solicitante-email'),
+    to_name:         v('solicitante'),
+    subject:         `Confirmação: ${tipoLabel}`,
+    message:         corpoHTML,
+    from_name:       'Affinity Corretora',
+    reply_to:        DESTINO_FIN,
+    tipo_label:      tipoLabelAcc,
+    solicitante:     v('solicitante'),
+    solicitante_email: v('solicitante-email'),
+    data_envio:      agora,
+    tabela_dados:    tabelaHTML,
+    obs_bloco:       obsBloco,
+    boleto_bloco:    boletoBloco,
   };
 
   try {
