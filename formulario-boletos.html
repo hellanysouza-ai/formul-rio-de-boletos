@@ -864,45 +864,70 @@ function validar() {
 
 // ── Corpo do e-mail ───────────────────────────────────────────────────────────
 function montarCorpo(boletoUrl = '', boletoNome = '') {
-  const tipoLabel = tipoAtual === 'emissao' ? 'EMISSAO DE BOLETO' : 'QUITACAO DE BOLETO';
+  const tipoEmissao = tipoAtual === 'emissao';
+  const tipoIcon  = tipoEmissao ? '&#x1F9FE;' : '&#x2705;';
+  const tipoLabel = tipoEmissao ? 'EMISS&Atilde;O DE BOLETO' : 'QUITA&Ccedil;&Atilde;O DE BOLETO';
   const dataEnvio = new Date().toLocaleString('pt-BR');
 
   let linhas = [];
-  if (tipoAtual === 'emissao') {
+  if (tipoEmissao) {
     linhas = [
-      ['Beneficiario', v('em-nome')],
-      ['CPF/CNPJ', v('em-doc')],
-      ['Proposta', v('em-proposta')],
-      ['Operadora', getOperadora('em')],
-      ['Valor', v('em-valor')],
-      ['Vencimento', fmtData(v('em-vencimento'))],
-      ['Descricao', v('em-descricao') || '-'],
-      ['Corretor', v('em-corretor')],
-      ['Cod. Corretor', v('em-cod-corretor')],
+      ['Benefici&aacute;rio', v('em-nome')],
+      ['CPF / CNPJ',         v('em-doc')],
+      ['N&ordm; Proposta',   v('em-proposta')],
+      ['Operadora',          getOperadora('em')],
+      ['Valor (R$)',         v('em-valor')],
+      ['Vencimento',         fmtData(v('em-vencimento'))],
+      ['Descri&ccedil;&atilde;o', v('em-descricao') || '&mdash;'],
+      ['Corretor',           v('em-corretor')],
+      ['C&oacute;d. Corretor', v('em-cod-corretor')],
     ];
   } else {
     linhas = [
-      ['Beneficiario', v('qt-nome')],
-      ['CPF/CNPJ', v('qt-doc')],
-      ['Proposta', v('qt-proposta')],
-      ['Operadora', getOperadora('qt')],
-      ['Corretor', v('qt-corretor')],
-      ['Cod. Corretor', v('qt-cod-corretor')],
+      ['Benefici&aacute;rio', v('qt-nome')],
+      ['CPF / CNPJ',          v('qt-doc')],
+      ['N&ordm; Proposta',    v('qt-proposta')],
+      ['Operadora',           getOperadora('qt')],
+      ['Corretor',            v('qt-corretor')],
+      ['C&oacute;d. Corretor', v('qt-cod-corretor')],
     ];
   }
 
   const obs = v('obs');
-  let rows = linhas.map(([l, val]) => `<tr><td style="padding:6px 10px;border:1px solid #ddd;font-weight:bold;color:#5C2952;width:160px">${l}</td><td style="padding:6px 10px;border:1px solid #ddd">${val}</td></tr>`).join('');
+  const rows = linhas.map(([l, val], i) =>
+    `<tr style="background:${i%2===0?'#fff':'#fdf8fc'}">
+      <td style="padding:8px 12px;border:1px solid #e0e0e0;font-weight:600;color:#5C2952;font-size:12px;width:155px">${l}</td>
+      <td style="padding:8px 12px;border:1px solid #e0e0e0;font-size:13px;color:#2D1228">${val}</td>
+    </tr>`
+  ).join('');
 
-  return `<div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto">
-<div style="background:#7B3A6E;padding:16px 20px"><p style="color:#C9A84C;font-size:10px;font-weight:bold;margin:0 0 2px">AFFINITY CORRETORA</p><h2 style="color:#fff;font-size:15px;margin:0">${tipoLabel}</h2></div>
-<div style="padding:16px 20px;border:1px solid #ddd;border-top:none">
-<p style="font-size:11px;color:#888;margin:0 0 12px">Solicitante: <b>${v('solicitante')}</b> &middot; ${v('solicitante-email')} &middot; ${dataEnvio}</p>
-<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:12px">${rows}</table>
-${obs ? `<p style="font-size:12px;color:#555;margin:8px 0 0"><b>Obs:</b> ${obs}</p>` : ''}
-${boletoUrl ? `<div style="margin-top:12px;padding:10px 14px;background:#f0f8f0;border:1px solid #b2dfdb;border-radius:6px"><p style="font-size:11px;font-weight:bold;color:#1a9e6b;margin:0 0 4px">BOLETO PARA QUITACAO</p><a href="${boletoUrl}" style="color:#7B3A6E;font-size:13px;font-weight:bold">${boletoNome}</a></div>` : ''}
-</div>
-<div style="padding:8px 20px;background:#f5f0f4;border:1px solid #ddd;border-top:none"><p style="font-size:10px;color:#999;margin:0;text-align:center">E-mail gerado automaticamente pelo formulario de boletos da Affinity Corretora.</p></div>
+  return `<div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto;border-radius:10px;overflow:hidden;border:1px solid #e0e0e0">
+  <div style="background:#7B3A6E;padding:18px 22px">
+    <p style="color:#C9A84C;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 4px">Affinity Corretora</p>
+    <h2 style="color:#fff;font-size:16px;margin:0;font-weight:700">${tipoIcon} ${tipoLabel}</h2>
+  </div>
+  <div style="background:#fff;padding:18px 22px">
+    <p style="font-size:11px;color:#999;margin:0 0 14px;border-bottom:1px solid #f0e8ef;padding-bottom:10px">
+      Solicitante: <strong style="color:#5C2952">${v('solicitante')}</strong>
+      &nbsp;&middot;&nbsp;${v('solicitante-email')}
+      &nbsp;&middot;&nbsp;${dataEnvio}
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:14px;border-radius:8px;overflow:hidden">
+      ${rows}
+    </table>
+    ${obs ? `<div style="background:#f7f7f7;border-left:3px solid #7B3A6E;padding:10px 14px;margin-bottom:14px;border-radius:0 6px 6px 0">
+      <p style="font-size:10px;font-weight:700;color:#7B3A6E;text-transform:uppercase;letter-spacing:.8px;margin:0 0 4px">Observa&ccedil;&otilde;es</p>
+      <p style="font-size:13px;color:#2D1228;margin:0">${obs}</p>
+    </div>` : ''}
+    ${boletoUrl ? `<div style="background:#f0f9f4;border:1px solid #a8d5be;border-radius:8px;padding:12px 16px">
+      <p style="font-size:10px;font-weight:700;color:#1a9e6b;text-transform:uppercase;letter-spacing:.8px;margin:0 0 6px">&#x1F4CE; Boleto para Quita&ccedil;&atilde;o</p>
+      <a href="${boletoUrl}" style="color:#7B3A6E;font-size:13px;font-weight:700;text-decoration:none">${boletoNome}</a>
+      <p style="font-size:11px;color:#888;margin:4px 0 0">Clique no link acima para visualizar ou baixar o boleto.</p>
+    </div>` : ''}
+  </div>
+  <div style="background:#f5f0f4;padding:10px 22px;border-top:1px solid #e8dff0">
+    <p style="font-size:10px;color:#aaa;margin:0;text-align:center">Este e-mail foi gerado automaticamente pelo formul&aacute;rio de boletos da Affinity Corretora.</p>
+  </div>
 </div>`;
 }
 
