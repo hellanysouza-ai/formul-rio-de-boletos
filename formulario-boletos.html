@@ -719,9 +719,11 @@ async function uploadToCloudinary(file) {
   const tipo = file.type === 'application/pdf' ? 'raw' : 'image';
 
   // Converte para base64 via FileReader (compatível com todos os browsers)
+  const isPdf = file.type === 'application/pdf';
+
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result); // data:type;base64,xxx
+    reader.onload  = () => resolve(reader.result);
     reader.onerror = () => reject(new Error('Erro ao ler o arquivo'));
     reader.readAsDataURL(file);
   });
@@ -732,8 +734,9 @@ async function uploadToCloudinary(file) {
 
   let res;
   try {
+    // Usar sempre image/upload — Cloudinary aceita PDF via image endpoint
     res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${tipo}/upload`,
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
       { method: 'POST', body: formData }
     );
   } catch (networkErr) {
@@ -748,7 +751,13 @@ async function uploadToCloudinary(file) {
 
   const data = await res.json();
   if (!data.secure_url) throw new Error('Cloudinary não retornou URL do arquivo.');
-  return data.secure_url;
+
+  // Para PDF: adiciona fl_attachment para forçar download direto
+  let url = data.secure_url;
+  if (isPdf && !url.includes('fl_attachment')) {
+    url = url.replace('/upload/', '/upload/fl_attachment/');
+  }
+  return url;
 }
 function mascaraCpfCnpj(input) {
   let v = input.value.replace(/\D/g, ''); // remove tudo que não é número
